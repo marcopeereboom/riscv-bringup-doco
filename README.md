@@ -58,9 +58,18 @@ cross compiler is adequate. This builds glibc and binutils as well.
 git clone --recursive https://github.com/riscv/riscv-gnu-toolchain
 cd riscv-gnu-toolchain
 mkdir build && cd build
-../configure --prefix=$RISCV
+../configure --prefix=$RISCV --enable-multilib
 make -j8 linux
 ```
+
+We add mutilib so that we can experiment with other architectures and also in
+order to be able to experiment with clang which does not have hardfloat support
+upstream.
+
+**importatnt** rerunning the configuration and build step has weird side
+effects. It will generate an entire new tupple `riscv64-unknown-linux-elf` or
+`riscv-unknown-linux-gnu-gcc`. Avoid rebuilding the cross compiler and binutils
+or perform a `rm -rf $RISCV/*` before restarting the configure and build steps.
 
 ## riscv-pk
 
@@ -78,11 +87,11 @@ smoke test for the cross compiler.
 
 ## QEMU
 
-Latest QEMU branch is v4.0.0-rc3
+Latest QEMU branch is v4.0.0-rc4
 ```
 git clone https://github.com/qemu/qemu.git
 cd qemu
-git checkout v4.0.0-rc3
+git checkout v4.0.0-rc4
 mkdir build && cd build
 ../configure --prefix=$RISCV
 make install
@@ -173,7 +182,8 @@ wget https://fedorapeople.org/groups/risc-v/disk-images/stage4-disk.img.xz
 xz --decompress --keep stage4-disk.img.xz
 ```
 
-This section will be expanded once this has been reduce to somewhat simpler steps.
+This section will be expanded once this has been reduced to somewhat simpler
+steps.
 
 ## Booting QEMU
 
@@ -225,6 +235,29 @@ Note that Fedora has RISCV up to a point that it can boot vmlinux with an
 initrd however it is still a little clunky. As RISCV progresses this document
 will be updated to reflect new realities.
 
+Another cool trick with QEMU is that you can execute a riscv64 binary directly.
+In order to do that use the QEMU binary without `-system`.
+
+Create a hello.c:
+```
+#include <stdio.h>
+#include <stdlib.h>
+
+int
+main(int argc, char **argv)
+{
+        printf("Hello world!\n");
+        return (0);
+}
+```
+
+Compile and run:
+```
+riscv64-unknown-elf-gcc hello.c -o hello
+qemu-riscv64 hello
+Hello world!
+```
+
 ## FreeBSD
 
 FreeBSD boots to single user and is not quite ready for prime time.
@@ -236,20 +269,45 @@ NetBSD RISCV support is just words on a website. There is no working code.
 ## llvm-clang cross-compiler
 
 The llvm-clang compiler works but reqires cross compiled binutils to link.
-There is currently no hardfloat support upstream but patches are making it into
+There currently is no hardfloat support upstream but patches are making it into
 the downstream repo (https://github.com/lowRISC/riscv-llvm-integration). In
 addition llvm/clang uses GNU headers and not their own yet.  Building
 llvm/clang requires many GB of hard drive space.
 
+Install build deps:
 ```
-sudo xbps-install -S cmake
-git clone https://github.com/llvm/llvm-project.git
-cd llvm-project
-mkdir build && cd build
-cmake -DLLVM_ENABLE_PROJECTS=clang -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD="RISCV" ../llvm
-make -j8
-make install
+sudo xbps-install -S cmake ninja
 ```
+
+Create a script called `cmake.sh` with this content:
+```
+cmake -G Ninja -DCMAKE_BUILD_TYPE="Release" \
+        -DBUILD_SHARED_LIBS=True -DLLVM_USE_SPLIT_DWARF=True \
+        -DLLVM_OPTIMIZED_TABLEGEN=True -DLLVM_BUILD_TESTS=False \
+        -DCMAKE_INSTALL_PREFIX="$RISCV" \
+        -DLLVM_ENABLE_PROJECTS="clang" \
+        -DDEFAULT_SYSROOT="$RISCV/riscv64-unknown-elf" \
+        -DLLVM_DEFAULT_TARGET_TRIPLE="riscv64-unknown-elf" \
+        -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD="RISCV" \
+        ../llvm
+```
+
+And kick of compilation:
+```
+chmod +x cmake.sh
+./cmake.sh
+cmake --build . --target install
+```
+
+Example usage:
+```
+clang hello.c -c -o hello.o
+riscv64-unknown-elf-gcc hello.o -o hello -march=rv64imac -mabi=lp64
+qemu-riscv64 hello
+Hello world!
+```
+
+Note that we are linking with softfloat.
 
 While the compiler compiles and can be made to work with tricks it is just not
 ready for primtime use and requires the GNU toolchain to have been built with

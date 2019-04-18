@@ -312,3 +312,43 @@ Note that we are linking with softfloat.
 While the compiler compiles and can be made to work with tricks it is just not
 ready for primtime use and requires the GNU toolchain to have been built with
 multilib.
+
+# Go
+
+There is a working go 1.8 repo. This can be used but unfortunately it is
+outdated and requires major surgery to get modern programs to run (think go
+modules etc).
+
+Getting it to work requires go 1.4 to bootstrap it.
+```
+cd ~
+git clone https://github.com/golang/go.git go1.4
+cd go1.4/src
+git checkout -t origin/release-branch.go1.4
+./all.bash
+```
+
+Clone riscv repo:
+```
+git clone https://review.gerrithub.io/riscv/riscv-go riscv-go
+cd riscv-go/src
+./all.bash
+```
+
+Create hello.go:
+```
+package main
+
+import "fmt"
+
+func main() {
+        fmt.Println("Hello go world!")
+}
+```
+
+Compile and run:
+```
+GOARCH=riscv GOOS=linux ~/git/riscv-go/bin/go build hello.go
+qemu-riscv64 hello
+Hello go world!
+```

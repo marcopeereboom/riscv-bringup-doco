@@ -235,4 +235,22 @@ NetBSD RISCV support is just words on a website. There is no working code.
 
 ## llvm-clang cross-compiler
 
-The llvm-clang compiler is rumoured to work fine. This section will be expanded.
+The llvm-clang compiler works but reqires cross compiled binutils to link.
+There is currently no hardfloat support upstream but patches are making it into
+the downstream repo (https://github.com/lowRISC/riscv-llvm-integration). In
+addition llvm/clang uses GNU headers and not their own yet.  Building
+llvm/clang requires many GB of hard drive space.
+
+```
+sudo xbps-install -S cmake
+git clone https://github.com/llvm/llvm-project.git
+cd llvm-project
+mkdir build && cd build
+cmake -DLLVM_ENABLE_PROJECTS=clang -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD="RISCV" ../llvm
+make -j8
+make install
+```
+
+While the compiler compiles and can be made to work with tricks it is just not
+ready for primtime use and requires the GNU toolchain to have been built with
+multilib.

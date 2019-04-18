@@ -119,7 +119,7 @@ CROSS_COMPILE=riscv64-unknown-elf- make PLATFORM=qemu/virt
 cp build/platform/qemu/virt/firmware/fw_jump.elf $QEMU
 ```
 
-`bbl` method
+`bbl` method is described in a later section because it requires the `vmlinux` kernel image.
 
 ## Linux kernel
 
